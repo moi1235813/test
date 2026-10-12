@@ -1,0 +1,48 @@
+from pathlib import Path
+import matplotlib.pyplot as plt
+import cantera as ct
+from si import compute_adiabatic_T
+
+p = 6e6 # pressure [Pa]
+
+Tfuel = 900
+Tox = 1000
+mdot = 0.1
+eq_ratios = 1 #np.linspace(0.2, 5, 10)
+air = "O2:1,N2:3.76"
+
+width = 0.005  # m
+loglevel = 2  # amount of diagnostic output (0 to 8)
+
+#gas = ct.Solution('h2o2.yaml')
+gas = ct.Solution('output2.yaml')
+#gas = ct.Solution('Mevel2017.yaml')
+#gas = ct.Solution('example_data/ammonia-CO-H2-Alzueta-2023.yaml')
+
+plt.clf()
+plt.subplot(1, 1, 1)
+
+gas.set_equivalence_ratio(eq_ratios, fuel="H2", oxidizer=air)
+
+T_mix, X_target = compute_adiabatic_T(gas, T_oxidiser=Tox, P_pa=p, T_fuel=Tfuel)
+gas.TPX = T_mix, p, X_target
+
+
+f = ct.BurnerFlame(gas, width=width)
+f.burner.mdot = mdot
+f.set_refine_criteria(ratio=3.0, slope=0.05, curve=0.1)
+f.show()
+
+f.transport_model = 'mixture-averaged'
+f.solve(loglevel, auto=True)
+
+fig, ax1 = plt.subplots()
+
+ax1.plot(f.grid, f.heat_release_rate / 1e6, color='C4')
+ax1.set_ylabel('heat release rate [MW/m³]', color='C4')
+ax1.set(xlabel='distance from burner [m]')
+
+ax2 = ax1.twinx()
+ax2.plot(f.grid, f.T, color='C3')
+ax2.set_ylabel('temperature [K]', color='C3')
+plt.show()
